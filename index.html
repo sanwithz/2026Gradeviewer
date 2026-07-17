@@ -323,6 +323,17 @@
                 </div>
 
             </div>
+
+            <!-- Graded Answer Sheet Preview Card -->
+            <div id="answer-sheet-card" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hidden animate-fade-in-up mt-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <i data-lucide="file-text" class="w-5 h-5 text-brand-600"></i>
+                    <h3 class="font-bold text-slate-800 text-lg">Graded Answer Sheet</h3>
+                </div>
+                <div class="relative rounded-2xl overflow-hidden border border-slate-100 max-h-[600px] flex items-center justify-center bg-slate-50 shadow-inner">
+                    <img id="answer-sheet-img" class="max-w-full max-h-[580px] object-contain rounded-xl p-4 shadow-sm" alt="Scanned Answer Sheet">
+                </div>
+            </div>
         </main>
     </div>
 
@@ -332,7 +343,7 @@
 
         // Application Configuration (Directly Hardcoded)
         const config = {
-            liffId: '2007125937-kqpNr6eV', 
+            liffId: '2007125937-UDOuk2rs', 
             gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbzKzn_EMBck3OrMbOkRpu6HvNO_g9kHgghNEE0pyfU9b8dfaZ6RFHnikhEJ9Y8w1GKEPw/exec',
 
             units: [
@@ -411,7 +422,9 @@
                 scoreCircle: document.getElementById('score-circle'),
                 gradeBadge: document.getElementById('unit-grade-badge'),
                 chart: document.getElementById('bar-chart'),
-                tableBody: document.getElementById('grade-table-body')
+                tableBody: document.getElementById('grade-table-body'),
+                answerSheetCard: document.getElementById('answer-sheet-card'),
+                answerSheetImg: document.getElementById('answer-sheet-img')
             },
             loading: {
                 overlay: document.getElementById('app-loading'),
@@ -761,6 +774,18 @@
             // Render Chart and Table
             renderChart();
             renderTable();
+
+            // Render Graded Answer Sheet if available for this topic
+            const hasAnswerSheet = state.currentStudent.answer_sheet_image && 
+                                   state.currentStudent.answer_sheet_topic && 
+                                   state.currentStudent.answer_sheet_topic.trim().toLowerCase() === activeUnit.name.trim().toLowerCase();
+            
+            if (hasAnswerSheet) {
+                DOM.dashboard.answerSheetImg.src = state.currentStudent.answer_sheet_image;
+                DOM.dashboard.answerSheetCard.classList.remove('hidden');
+            } else {
+                DOM.dashboard.answerSheetCard.classList.add('hidden');
+            }
         }
 
         function renderChart() {
