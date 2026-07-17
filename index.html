@@ -326,67 +326,14 @@
         </main>
     </div>
 
-    <!-- Floating Settings Trigger -->
-    <button id="settings-trigger" class="fixed bottom-6 right-6 z-50 p-3.5 bg-slate-800 hover:bg-slate-700 text-white rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 flex items-center justify-center" title="Configure LIFF & Sheets API">
-        <i data-lucide="settings" class="w-5 h-5"></i>
-    </button>
-
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden transition-opacity duration-300 opacity-0">
-        <div class="glass-card w-full max-w-md rounded-3xl shadow-2xl p-8 relative animate-fade-in-up">
-            <button id="close-settings" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            
-            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <i data-lucide="database" class="w-5 h-5 text-brand-600"></i>
-                API & LIFF Integration
-            </h3>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="config-liff-id" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">LINE LIFF ID</label>
-                    <input id="config-liff-id" type="text" 
-                        class="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-4 focus:ring-brand-100 focus:border-brand-500 transition-all outline-none" 
-                        placeholder="e.g. 2000000000-XXXXXXXX">
-                </div>
-                
-                <div>
-                    <label for="config-gas-url" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Apps Script Web App URL</label>
-                    <input id="config-gas-url" type="text" 
-                        class="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-4 focus:ring-brand-100 focus:border-brand-500 transition-all outline-none" 
-                        placeholder="https://script.google.com/macros/s/.../exec">
-                </div>
-                
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex gap-2">
-                    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5 animate-pulse"></i>
-                    <div>
-                        If left blank, the app will run in <strong>Demo Mode</strong> with local mock data.
-                    </div>
-                </div>
-                
-                <button id="save-settings" 
-                    class="w-full py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/20 transition-all">
-                    Save & Reload
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script>
         // Initialize Lucide Icons
         lucide.createIcons();
 
-        // Retrieve integration settings from localStorage
-        const savedLiffId = localStorage.getItem('grade_portal_liff_id') || '';
-        const savedGasUrl = localStorage.getItem('grade_portal_gas_url') || '';
-
-        // Application Configuration
+        // Application Configuration (Directly Hardcoded)
         const config = {
-            // Paste your credentials directly here to hardcode them (e.g. '2000000000-abc')
-            // If left empty, it will fall back to configuration from the settings menu.
-            liffId: '2007125937-UDOuk2rs' || savedLiffId, 
-            gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbzKzn_EMBck3OrMbOkRpu6HvNO_g9kHgghNEE0pyfU9b8dfaZ6RFHnikhEJ9Y8w1GKEPw/exec' || savedGasUrl,
+            liffId: '2007125937-UDOuk2rs', 
+            gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbzKzn_EMBck3OrMbOkRpu6HvNO_g9kHgghNEE0pyfU9b8dfaZ6RFHnikhEJ9Y8w1GKEPw/exec',
 
             units: [
                 { 
@@ -436,8 +383,7 @@
         let state = {
             currentStudent: null,
             activeTabId: 0,
-            liffUser: null,
-            isDemoMode: true
+            liffUser: null
         };
 
         // DOM Elements
@@ -471,21 +417,10 @@
                 overlay: document.getElementById('app-loading'),
                 status: document.getElementById('loading-status')
             },
-            badge: {
-                demo: document.getElementById('demo-mode-badge')
-            },
             liff: {
                 userInfo: document.getElementById('liff-user-info'),
                 avatar: document.getElementById('liff-avatar'),
                 name: document.getElementById('liff-name')
-            },
-            settings: {
-                trigger: document.getElementById('settings-trigger'),
-                modal: document.getElementById('settings-modal'),
-                close: document.getElementById('close-settings'),
-                save: document.getElementById('save-settings'),
-                liffIdInput: document.getElementById('config-liff-id'),
-                gasUrlInput: document.getElementById('config-gas-url')
             }
         };
 
@@ -514,7 +449,7 @@
             }
         }
 
-        // Google Sheets API fetch wrapper
+        // Google Sheets API GET fetch wrapper
         async function fetchFromSheets(action, params = {}) {
             if (!config.gasWebAppUrl) throw new Error('Google Apps Script URL is not configured');
             
@@ -522,7 +457,6 @@
             const url = `${config.gasWebAppUrl}?${queryParams}`;
             
             try {
-                // GET request is clean, avoids CORS preflight redirects issues
                 const response = await fetch(url, { method: 'GET', mode: 'cors' });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return await response.json();
@@ -532,7 +466,45 @@
             }
         }
 
-        // Initialize LIFF and authenticate
+        // Google Sheets API POST helper (via text/plain to avoid preflight CORS redirection issues)
+        async function postToSheets(data) {
+            if (!config.gasWebAppUrl) throw new Error('Google Apps Script URL is not configured');
+            
+            try {
+                const response = await fetch(config.gasWebAppUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error('Post fetch error:', error);
+                throw error;
+            }
+        }
+
+        // Silently refresh student data in the background to update grades
+        async function refreshStudentData(studentId) {
+            try {
+                const result = await fetchFromSheets('getGrades', { studentId });
+                if (result.success && result.student) {
+                    localStorage.setItem('student_data', JSON.stringify(result.student));
+                    if (state.currentStudent && state.currentStudent.student_id === studentId) {
+                        state.currentStudent = result.student;
+                        updateDashboard();
+                    }
+                }
+            } catch (e) {
+                console.error('Background refresh failed:', e);
+            }
+        }
+
+        // Initialize LIFF and authenticate with LINE
         async function initializeLiffAndAuth() {
             try {
                 showLoading('Connecting to LINE...');
@@ -563,24 +535,20 @@
                 DOM.liff.userInfo.classList.remove('hidden');
                 
                 // Check if this LINE UID is already linked to a Student ID in the Sheet
-                if (sessionStorage.getItem('portal_logged_out') !== 'true') {
-                    showLoading('Verifying student account...');
-                    const result = await fetchFromSheets('checkUid', { uid: state.liffUser.userId });
-                    
-                    if (result.success && result.linked && result.student) {
-                        showLoading('Logging you in...');
-                        loginUser(result.student);
-                    } else {
-                        console.log('LINE User ID is not linked to any Student ID yet.');
-                    }
+                showLoading('Verifying student account...');
+                const result = await fetchFromSheets('checkUid', { uid: state.liffUser.userId });
+                
+                if (result.success && result.linked && result.student) {
+                    showLoading('Logging you in...');
+                    // Cache the student data in localStorage
+                    localStorage.setItem('student_data', JSON.stringify(result.student));
+                    loginUser(result.student);
                 } else {
-                    console.log('User manually logged out during this session, bypassing auto-login.');
+                    console.log('LINE User ID is not linked to any Student ID yet.');
                 }
             } catch (err) {
                 console.error('LIFF/Sheets initialization failed:', err);
-                alert('Integration Error: ' + err.message + '\nFalling back to Demo Mode.');
-                state.isDemoMode = true;
-                DOM.badge.demo.classList.remove('hidden');
+                alert('Integration Error: ' + err.message);
             } finally {
                 hideLoading();
             }
@@ -590,76 +558,59 @@
         async function init() {
             renderTabs();
             setupEventListeners();
-            
-            // Populate settings modal input fields
-            DOM.settings.liffIdInput.value = config.liffId;
-            DOM.settings.gasUrlInput.value = config.gasWebAppUrl;
-            
-            // Check if Apps Script Web App is configured
-            if (config.gasWebAppUrl) {
-                state.isDemoMode = false;
-                DOM.badge.demo.classList.add('hidden');
-                
-                // If LINE LIFF is also configured, initialize it
-                if (config.liffId) {
-                    await initializeLiffAndAuth();
-                } else {
-                    console.log('LINE LIFF is not configured. Running in Sheet-only login mode.');
+
+            // Check if there is already cached student data in localStorage
+            const cachedStudent = localStorage.getItem('student_data');
+            if (cachedStudent) {
+                try {
+                    const student = JSON.parse(cachedStudent);
+                    loginUser(student);
                     hideLoading();
+                    
+                    // Silently refresh data from sheet in the background
+                    refreshStudentData(student.student_id);
+                } catch (e) {
+                    console.error('Failed to parse cached student data:', e);
+                    localStorage.removeItem('student_data');
+                    await initializeLiffAndAuth();
                 }
             } else {
-                state.isDemoMode = true;
-                DOM.badge.demo.textContent = 'Setup Required';
-                DOM.badge.demo.className = 'fixed top-4 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-800 rounded-full text-xs font-semibold shadow-sm border border-red-200';
-                DOM.badge.demo.classList.remove('hidden');
-                hideLoading();
-                console.log('Setup Required: Please configure your Apps Script Web App URL using the settings button.');
+                // No cached login, run full LIFF authentication
+                await initializeLiffAndAuth();
             }
         }
 
         function setupEventListeners() {
-            // Login Submission
+            // Login Submission (Link LINE UID and Student ID)
             DOM.login.form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id = DOM.login.input.value.trim().toUpperCase();
                 
-                if (state.isDemoMode) {
-                    showLoginError('Apps Script Web App URL is not configured. Use the settings gear in the bottom-right corner to set it.');
+                if (!state.liffUser) {
+                    alert('LINE authentication is required. Please reload the page.');
                     return;
                 }
                 
-                showLoading('Validating Student ID...');
+                showLoading('Linking account with Sheet...');
                 try {
-                    // Check if LIFF user profile is loaded
-                    if (config.liffId && state.liffUser) {
-                        // Link LINE UID and login
-                        const result = await fetchFromSheets('loginAndLink', {
-                            studentId: id,
-                            uid: state.liffUser.userId
-                        });
-                        
-                        if (result.success && result.student) {
-                            DOM.login.error.classList.add('hidden');
-                            loginUser(result.student);
-                        } else {
-                            showLoginError(result.error || 'Student ID not found in sheet database.');
-                        }
+                    // Call doPost to save the student-to-uid linkage
+                    const result = await postToSheets({
+                        action: 'loginAndLink',
+                        studentId: id,
+                        uid: state.liffUser.userId
+                    });
+                    
+                    if (result.success && result.student) {
+                        DOM.login.error.classList.add('hidden');
+                        // Cache the student data locally for instant loads next time
+                        localStorage.setItem('student_data', JSON.stringify(result.student));
+                        loginUser(result.student);
                     } else {
-                        // Sheet-only verification (bypass LINE LIFF linking)
-                        const result = await fetchFromSheets('getGrades', {
-                            studentId: id
-                        });
-                        
-                        if (result.success && result.student) {
-                            DOM.login.error.classList.add('hidden');
-                            loginUser(result.student);
-                        } else {
-                            showLoginError(result.error || 'Student ID not found in sheet database.');
-                        }
+                        showLoginError(result.error || 'Student ID not found in sheet database.');
                     }
                 } catch (err) {
                     console.error('Login error:', err);
-                    showLoginError('Network error connecting to Google Sheets. Verify your Web App URL.');
+                    showLoginError('Network error connecting to Google Sheets. Verify your deployment.');
                 } finally {
                     hideLoading();
                 }
@@ -687,44 +638,12 @@
             DOM.dashboard.image.addEventListener('load', () => {
                 DOM.dashboard.image.classList.remove('opacity-0');
             });
-            
-            // Settings handlers
-            DOM.settings.trigger.addEventListener('click', () => {
-                DOM.settings.modal.classList.remove('hidden');
-                setTimeout(() => {
-                    DOM.settings.modal.classList.remove('opacity-0');
-                }, 50);
-            });
-            
-            const closeSettings = () => {
-                DOM.settings.modal.classList.add('opacity-0');
-                setTimeout(() => {
-                    DOM.settings.modal.classList.add('hidden');
-                }, 300);
-            };
-            
-            DOM.settings.close.addEventListener('click', closeSettings);
-            
-            DOM.settings.save.addEventListener('click', () => {
-                const liffIdVal = DOM.settings.liffIdInput.value.trim();
-                const gasUrlVal = DOM.settings.gasUrlInput.value.trim();
-                
-                localStorage.setItem('grade_portal_liff_id', liffIdVal);
-                localStorage.setItem('grade_portal_gas_url', gasUrlVal);
-                
-                closeSettings();
-                showLoading('Reloading with new settings...');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            });
         }
 
         // Auth Logic
         function loginUser(student) {
             state.currentStudent = student;
             state.activeTabId = 0; // Reset to first tab
-            sessionStorage.removeItem('portal_logged_out');
             
             // Populate Header Data
             const name = student.student_name || student.student_id;
@@ -754,13 +673,13 @@
         }
 
         function logoutUser() {
-            // Mark session as manually logged out to prevent immediate auto-login loop
-            sessionStorage.setItem('portal_logged_out', 'true');
+            // Clear local storage and session cache
+            localStorage.removeItem('student_data');
             state.currentStudent = null;
             DOM.login.input.value = '';
             
             // Log out of LIFF if logged in
-            if (liff && liff.isLoggedIn()) {
+            if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
                 try {
                     liff.logout();
                 } catch (e) {
@@ -780,6 +699,9 @@
                 requestAnimationFrame(() => {
                     DOM.views.login.classList.remove('opacity-0', 'pointer-events-none');
                 });
+                
+                // Re-authenticate / prompt login since we logged out
+                initializeLiffAndAuth();
             }, 500);
         }
 
